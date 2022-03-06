@@ -1,0 +1,76 @@
+service: my-etl-pipeline
+
+plugins:
+  - serverless-prune-plugin
+  - serverless-python-requirements
+  - serverless-dotenv-plugin
+
+custom:
+  pythonRequirements:
+    dockerizePip: false
+  prune:
+    automatic: true
+    number: 3
+  dotenv:
+    include:
+      - TZ_LOCAL
+
+provider:
+  name: aws
+  runtime: python3.8
+  memorySize: 256
+  timeout: 300
+  deploymentBucket:
+    name: serverless-deploy-bucket-mia
+    maxPreviousDeploymentArtifacts: 3
+  stage: dev
+  region: ap-southeast-2
+  versionFunctions: true
+  layers: arn:aws:lambda:ap-southeast-2:770693421928:layer:Klayers-python38-pandas:48
+
+# Lambda IAM Role Configuration
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:HeadObject
+        - s3:GetObject
+        - s3:putObject
+      Resource:
+        - arn:aws:s3:::src-bucket-datapipeline/*
+        - arn:aws:s3:::dst-bucket-snowpipeline/*
+    - Effect: Allow
+      Action:
+        - logs:*
+      Resource: "*"
+
+# exclude packaging information 
+package:
+  exclude:
+    - __cache__/**
+    - __pycache__/**
+    - node_modules/**
+    - 'package.json'
+    - 'package-lock.json'
+    - 'snowflake.sql'
+    - 'readme.md'
+
+# Lambda Function
+functions:
+  etl_process:
+    handler: etl_process.lambda_handler
+    name: my_etl_lambda
+    description: "AWS-Lambda-to-Snowflake-Data-Cloud-ETL-Integration"
+    events:
+      - s3:
+          bucket: src-bucket-datapipeline
+          event: s3:ObjectCreated:*
+          existing: true
+
+#  Build Destination Bucket
+resources:
+  Resources:
+    SnowflakeStagingOutbucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        AccessControl: BucketOwnerFullControl
+        BucketName: dst-bucket-snowpipeline

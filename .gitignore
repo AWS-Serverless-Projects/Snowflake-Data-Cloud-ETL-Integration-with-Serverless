@@ -1,0 +1,8 @@
+.serverless/
+.DS_Store
+FullScript.sql
+FullScript.py
+FullScript.ipynb
+data.ctl
+note.txt
+rawfile.csv
